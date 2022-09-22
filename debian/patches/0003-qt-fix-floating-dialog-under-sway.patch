@@ -1,0 +1,26 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Fri, 24 Jun 2022 22:35:42 -0400
+Subject: qt: fix floating dialog under sway
+
+Forwarded: https://dev.gnupg.org/T6041 https://dev.gnupg.org/D549
+
+Thanks to Gard Spreemann for identifying this problem in Debian, and
+to qlyiss for proposing the fix on the upstream bugtracker.
+
+Closes: #1013318
+---
+ qt/pinentrydialog.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/qt/pinentrydialog.cpp b/qt/pinentrydialog.cpp
+index 53e394f..b00c898 100644
+--- a/qt/pinentrydialog.cpp
++++ b/qt/pinentrydialog.cpp
+@@ -280,6 +280,7 @@ PinEntryDialog::PinEntryDialog(QWidget *parent, const char *name,
+     mainLayout->addLayout(hbox);
+     mainLayout->addStretch(1);
+     mainLayout->addWidget(buttons);
++    mainLayout->setSizeConstraint(QLayout::SetFixedSize);
+ 
+     auto capsLockWatcher = new CapsLockWatcher{this};
+     connect(capsLockWatcher, &CapsLockWatcher::stateChanged,

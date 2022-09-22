@@ -1,0 +1,4 @@
+Tests: simple-tty
+Depends:
+ pinentry-tty,
+ python3,

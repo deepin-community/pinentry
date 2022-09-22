@@ -1,0 +1,499 @@
+pinentry (1.2.0-2) UNRELEASED; urgency=medium
+
+  * update
+
+ -- Debian GnuPG Maintainers <pkg-gnupg-maint@lists.alioth.debian.org>  Thu, 07 Jul 2022 02:58:51 -0400
+
+pinentry (1.2.0-2) unstable; urgency=medium
+
+  * Fix --lc-ctype in manpages (Closes: #979412)
+  * wrap-and-sort -ast
+  * qt: fix floating dialog under sway (Closes: #1013318)
+  * Standards-Version: bump to 4.6.1 (no changes needed).
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 24 Jun 2022 22:38:56 -0400
+
+pinentry (1.2.0-1) unstable; urgency=medium
+
+  * New upstream release to unstable
+  * d/gbp.conf: use DEP-14 branch naming (return to unstable)
+  * standards version: bump to 4.6.0 (no changes needed)
+  * ensure qt5 works on wayland
+  * refresh version info patch
+  * Drop fix for rpath, fixed upstream
+  * drop tweaks for EFL configuration check
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 28 Apr 2022 08:33:01 -0400
+
+pinentry (1.1.1-1) experimental; urgency=medium
+
+  * new upstream release 1.1.1
+  * dh 13 already does --fail-missing by default
+  * drop --as-needed linking flag, bullseye does this by default
+  * move to debian/sid branch for packaging
+  * update upstream signing keys
+  * drop patches already upstream
+  * standards-version: bump to 4.5.1 (no changes needed)
+  * refresh patches
+  * avoid rpath for pinentry-qt
+  * clean up use of pkg-config for EFL pinentry
+  * avoid trying to build pinentry-efl
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 17 Feb 2021 15:43:06 -0500
+
+pinentry (1.1.0-4) unstable; urgency=medium
+
+  [ Peter Eisentraut ]
+  * Remove myself from uploaders
+
+  [ Daniel Kahn Gillmor ]
+  * make pinentry-doc multiarch: foreign
+  * refresh patches
+  * d/tests/simple-tty: introduce a delay in the test to avoid a race
+  * move to dh 13
+  * Standards-Version: bump to 4.5.0 (no changes needed)
+
+  [ Yuriy M. Kaminskiy ]
+  * Mark all pinentry packages as Multi-arch: foreign (Closes: #936048)
+
+  [ Daniel Kahn Gillmor ]
+  * drop transitional pinentry-qt4 package (Closes: #940754)
+  * update README.Debian
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 08 May 2020 13:10:05 -0400
+
+pinentry (1.1.0-3) unstable; urgency=medium
+
+  * Standards-Version: bump to 4.4.0 (no changes needed)
+  * move to debhelper 12
+  * apply upstream qt bugfix
+  * ship the version of pinentry.info installed (not from the source)
+  * avoid spuriously flagging /usr/bin/pinentry as not-installed
+  * drop shlibs:Depends from Arch: all pinentry-{doc,qt4} packages
+  * use dh_missing --fail-missing
+  * minimize debian/upstream/signing-key.asc
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 26 Jul 2019 20:37:37 -0400
+
+pinentry (1.1.0-2) unstable; urgency=medium
+
+  * use DEP-14 branch naming
+  * d/control: add Rules-Requires-Root: no
+  * standards-version: update to 4.3.0 (no changes needed)
+  * Test screenlock correctly from pinentry-gnome3 (Closes: #927105)
+    Thanks, Zephaniah E. Loss-Cutler-Hull!
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 17 Apr 2019 14:42:10 -0400
+
+pinentry (1.1.0-1) unstable; urgency=medium
+
+  * new upstream release
+   - added pinentry-fltk package
+  * move to debhelper 11
+  * Standards-Version: bump to 4.1.3 (no changes needed)
+  * d/control: move Vcs*: to salsa
+  * d/copyright: Format: use https
+  * use https to point to upstream source
+  * d/changelog: strip trailing whitespace
+  * doc/pinentry.info is a generated file, drop it during import-orig
+  * drop patches already applied upstream, refresh remaining patches
+  * document tqt and fltk licensing
+  * fix formatting escapes in fltk
+  * clean up doc/pinentry.info
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 05 Feb 2018 20:18:30 -0500
+
+pinentry (1.0.0-3) unstable; urgency=medium
+
+  * added notes about how pinentry-curses is not intended
+    to work alongside emacs
+  * import improvements and bugfixes from upstream
+  * wrap-and-sort -ast
+  * Stanards-Version: update to 4.1.0 (no changes needed)
+  * drop unnecessary build-dep on autoreconf
+  * build-depend on pkg-config
+  * create simple autopkgtest for pinentry-tty
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 26 Sep 2017 17:52:43 -0400
+
+pinentry (1.0.0-2) unstable; urgency=medium
+
+  * fix documentation typos (Closes: #665879)
+  * pinentry-gnome3: Ask for new passwords twice (Closes: #851277)
+  * normalize window title behavior across graphical variants
+  * pinentry-gtk-2: busy-wait while pointer is already grabbed (Closes: #850708)
+  * pinentry-gtk-2: retry input grab based on real time delay (Closes: #851707)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 06 Feb 2017 03:56:27 -0500
+
+pinentry (1.0.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * removed most patches, already imported upstream.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 05 Dec 2016 22:24:12 -0500
+
+pinentry (0.9.7-9) unstable; urgency=medium
+
+  * more upstream patches (pinentry-gnome3 now falls back to curses when
+    screen is locked)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 08 Nov 2016 14:02:47 -0600
+
+pinentry (0.9.7-8) unstable; urgency=medium
+
+  * more patches from upstream
+  * reduce work for the buildds by avoiding some duplicated builds.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Sat, 05 Nov 2016 23:28:59 -0400
+
+pinentry (0.9.7-7) unstable; urgency=medium
+
+  * update debian/watch to use https
+  * cleanup patches from upstream
+  * pinentry-gnome3: improve fallback to curses (Closes: #841909)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 04 Nov 2016 23:50:45 -0400
+
+pinentry (0.9.7-6) unstable; urgency=medium
+
+  * included several patches from upstream
+  * bumped to debhelper 10
+  * p-gnome3 Recommends: dbus-user-session (addresses: #801247)
+  * added texinfo to build-dependencies for /usr/bin/makeinfo
+  * added bindnow hardening flag
+  * bumped standards-version to 3.9.8 (no changes needed)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 11 Oct 2016 15:52:08 -0400
+
+pinentry (0.9.7-5) unstable; urgency=medium
+
+  * use https for Vcs-* fields
+  * bump standards-version to 3.9.7
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Sun, 21 Feb 2016 09:53:59 -0800
+
+pinentry (0.9.7-4) unstable; urgency=medium
+
+  * avoid pinentry failures when bound to libsecret and the secret service
+    is not running.  Thanks, Stef Walter.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Sat, 20 Feb 2016 14:36:43 -0500
+
+pinentry (0.9.7-3) unstable; urgency=medium
+
+  * build -tty, -curses, and -qt without libsecret (Closes: #787883)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 04 Feb 2016 18:13:01 -0500
+
+pinentry (0.9.7-2) unstable; urgency=medium
+
+  * avoid use-after-free in QT pw quality calculation (patch from upstream)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 04 Feb 2016 16:53:15 -0500
+
+pinentry (0.9.7-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 04 Jan 2016 10:44:50 -0500
+
+pinentry (0.9.6-4) unstable; urgency=medium
+
+  * make pinentry-qt use qt5 by default. (Closes: #802936)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 28 Oct 2015 14:22:02 -0400
+
+pinentry (0.9.6-3) unstable; urgency=medium
+
+  * added NEWS entry for pinentry-gtk2 (Closes: #801757)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 19 Oct 2015 20:40:16 -0400
+
+pinentry (0.9.6-2) unstable; urgency=medium
+
+  * dummy/transitional pinentry-qt4 package: update alternatives
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 05 Oct 2015 17:35:46 -0400
+
+pinentry (0.9.6-1) unstable; urgency=medium
+
+  * New upstream release
+  * fix pinentry-tty description typo (Closes: #798944)
+    Thanks, Yuri D'Elia
+  * introduce new pinentry-qt, which people should use instead of
+    pinentry-qt4.
+  * pinentry-qt4 is now a dummy transitional package.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 01 Oct 2015 19:04:24 -0700
+
+pinentry (0.9.5-4) unstable; urgency=medium
+
+  * use -std=gnu++11 for pinentry-qt4 (Closes: #795175)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 11 Aug 2015 13:03:19 -0400
+
+pinentry (0.9.5-3) unstable; urgency=medium
+
+  * added dependency from pinentry-gnome3 to gcr (Closes: #791379)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 05 Aug 2015 00:39:02 -0400
+
+pinentry (0.9.5-2) unstable; urgency=medium
+
+  * disable emacs and emacs-fallback until we get a better description of
+    them in the upstream documentation
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 07 Jul 2015 14:43:33 -0400
+
+pinentry (0.9.5-1) unstable; urgency=medium
+
+  * new upstream release
+  * build-depends on libgpg-error and libassuan now
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 02 Jul 2015 18:01:23 -0400
+
+pinentry (0.9.4-2) unstable; urgency=medium
+
+  * rely on user's choice of password-manager with pinentry-gnome3
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 09 Jun 2015 07:12:16 -0400
+
+pinentry (0.9.4-1) unstable; urgency=medium
+
+  * New upstream version (most d/patches applied upstream)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Fri, 05 Jun 2015 17:33:37 -0400
+
+pinentry (0.9.3-3) unstable; urgency=medium
+
+  * fix secmem buffer over-clearing (Closes: #787690)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 04 Jun 2015 23:48:26 -0400
+
+pinentry (0.9.3-2) unstable; urgency=medium
+
+  * fix pinentry-curses text entry (Closes: #787639)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 03 Jun 2015 13:25:16 -0400
+
+pinentry (0.9.3-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Help pinentry-qt4 show up above existing windows (Closes: #581617)
+  * add new pinentry-gnome3 package.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 01 Jun 2015 19:09:28 -0400
+
+pinentry (0.9.2-1) unstable; urgency=medium
+
+  [ Eric Dorland ]
+  * debian/rules: Install README.Debian in all packages instead of using
+    symlinks.
+
+  [ Daniel Kahn Gillmor ]
+  * new upstream version (Closes: #516489)
+  * add pinentry-tty package (Closes: #782888)
+  * debian/copyright: use DEP5
+  * use --enable-pinentry-qt4-clipboard (Closes: #637029)
+  * terminate politely if TTY vanishes (Closes: #559936)
+  * use dh-autoreconf
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Wed, 13 May 2015 11:45:38 -0400
+
+pinentry (0.9.1-1) experimental; urgency=medium
+
+  * New Upstream Release
+  * Bringing package under team maintenance, with Peter's agreement.
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Sun, 12 Apr 2015 15:29:35 -0400
+
+pinentry (0.9.0-0.1) experimental; urgency=medium
+
+  * Non-maintainer upload
+  * new upstream release (Closes: #765532)
+  * bumped Standards-Version to 3.9.6 (no changes needed)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 06 Nov 2014 17:53:20 -0500
+
+pinentry (0.8.3-2) unstable; urgency=medium
+
+  * Added libncursesw5-dev to build dependencies (closes: #728512,
+    #733268, #734179)
+
+ -- Peter Eisentraut <petere@debian.org>  Thu, 23 Jan 2014 22:28:38 -0500
+
+pinentry (0.8.3-1) unstable; urgency=medium
+
+  * New upstream release (closes: #731494)
+  * Updated watch file
+  * Updated standards version
+
+ -- Peter Eisentraut <petere@debian.org>  Sun, 15 Dec 2013 22:01:20 -0500
+
+pinentry (0.8.1-1) unstable; urgency=low
+
+  * New upstream release
+    - keyboard-race.patch incorporated upstream
+    - Fixed segmentation fault in pinentry-gtk2 (closes: #584947)
+  * Removed Qt 3 variant (closes: #604369)
+  * Updated standards version
+  * Changed to debhelper level 8
+
+ -- Peter Eisentraut <petere@debian.org>  Wed, 16 Feb 2011 20:18:53 +0200
+
+pinentry (0.8.0-1) unstable; urgency=low
+
+  * New upstream release
+  * Changed source format to 3.0 (quilt)
+  * Updated standards version
+
+ -- Peter Eisentraut <petere@debian.org>  Thu, 18 Mar 2010 23:36:51 +0200
+
+pinentry (0.7.6-1) unstable; urgency=low
+
+  * New upstream release
+    - Includes Qt 4 variant, formerly in separate source package pinentry-qt4
+    - Obsoletes gmalloc-prototypes.patch
+    - Made Gtk+-2 pinentry transient to the root window (closes: #445607)
+  * Changed copyright file to refer to GPL-2 file, per lintian
+  * Updated standards version
+  * Changed to debhelper level 7 and minimal version 7.2.17, to avoid obsolete
+    calls to install-info
+
+ -- Peter Eisentraut <petere@debian.org>  Mon, 13 Jul 2009 22:38:41 +0300
+
+pinentry (0.7.5-3) unstable; urgency=low
+
+  * Converted patches to quilt
+  * Updated standards version
+  * Dropped pinentry-gtk package (closes: #510740)
+
+ -- Peter Eisentraut <petere@debian.org>  Tue, 10 Feb 2009 22:32:43 +0200
+
+pinentry (0.7.5-2.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * gtk+-2/pinentry-gtk-2.c: apply patch to avoid keyboard grab race on SMP
+    systems (closes: #401957).
+
+ -- Pierre Habouzit <madcoder@debian.org>  Mon, 20 Oct 2008 15:11:18 +0200
+
+pinentry (0.7.5-2) unstable; urgency=high
+
+  * gtk+-2/gtksecentry.c: Adjusted the g_*malloc*() overrides to have the same
+    prototype as glib, to fix FTBFS (closes: #471613)
+  * debian/control: Added Build-Depends on libglib2.0-dev (>= 2.15.5) to make
+    sure we don't run into the old prototypes of g_*malloc*()
+
+ -- Peter Eisentraut <petere@debian.org>  Tue, 29 Apr 2008 11:41:54 +0200
+
+pinentry (0.7.5-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Peter Eisentraut <petere@debian.org>  Sun, 17 Feb 2008 15:50:05 +0100
+
+pinentry (0.7.4-2) unstable; urgency=low
+
+  * debian/copyright: converted to UTF-8 (closes: #455738)
+  * Changed section of pinentry-doc to doc
+  * debian/watch: force passive FTP, since ftp.gnupg.org seems unhappy with
+    active (closes: #456468)
+
+ -- Peter Eisentraut <petere@debian.org>  Fri, 21 Dec 2007 14:53:11 +0100
+
+pinentry (0.7.4-1) unstable; urgency=low
+
+  * New upstream release
+  * Added Homepage control field
+  * Updated standards version
+  * Added configure option --without-libcap to get consistent builds
+
+ -- Peter Eisentraut <petere@debian.org>  Mon, 10 Dec 2007 13:33:34 +0100
+
+pinentry (0.7.3-1) unstable; urgency=low
+
+  * New upstream release
+    - Fixes segfault after confirm in pinentry-curses (closes: #311410)
+  * Updated standards version
+  * Changed to Debhelper level 5
+  * Cleaned up build rules
+
+ -- Peter Eisentraut <petere@debian.org>  Tue, 17 Jul 2007 17:47:46 +0200
+
+pinentry (0.7.2-3) unstable; urgency=low
+
+  * Added linker option --as-needed
+
+ -- Peter Eisentraut <petere@debian.org>  Fri, 25 Nov 2005 21:12:12 +0100
+
+pinentry (0.7.2-2) unstable; urgency=low
+
+  * Changed maintainer address
+  * Updated standards version
+  * Rebuilt for new C++ ABI (closes: #324548)
+  * Tightened dependency on libgtk2.0-dev
+
+ -- Peter Eisentraut <petere@debian.org>  Mon, 29 Aug 2005 21:25:48 +0200
+
+pinentry (0.7.2-1) unstable; urgency=low
+
+  * New upstream release
+  * Added new -gtk2 flavor.
+  * Build dependencies revised accordingly.
+  * Added more copyright holders to debian/copyright.
+  * Removed compatibility symlinks.
+  * Converted to CDBS.
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Thu, 27 Jan 2005 19:10:07 +0100
+
+pinentry (0.7.1-5) unstable; urgency=low
+
+  * Actually apply the dpatches
+  * Removed no longer needed pinentry-cppflags patch
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Tue,  9 Nov 2004 22:27:14 +0100
+
+pinentry (0.7.1-4) unstable; urgency=low
+
+  * Converted to dpatch
+  * Moved programs to /usr/bin, made compatibility symlinks in
+    /usr/lib/pinentry
+  * Added Provides: pinentry, pinentry-x11 (closes: #274708)
+  * Created pinentry, pinentry-x11 alternatives (closes: #275711)
+  * Wrote man pages
+  * Use m4 to create the debhelper control files
+  * Added Enhances: gnupg-agent
+  * Use --disable-dependency-tracking
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Sun, 10 Oct 2004 11:37:51 +0200
+
+pinentry (0.7.1-3) unstable; urgency=low
+
+  * Suggestions by Martin Pitt...
+  * Removed stale pinentry.substvars
+  * Changed pinentry-doc Recommends to Suggests
+  * Changed pinentry-doc to architecture-independent
+  * Added -g to CXXFLAGS
+  * Removed empty maintainer scripts
+  * Fixed configure build and host options as suggested by autotools-dev
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Mon, 21 Jun 2004 09:17:23 +0200
+
+pinentry (0.7.1-2) unstable; urgency=low
+
+  * Revised synopses and descriptions
+  * Revised Debian.README
+  * Added watch file
+  * Enabled curses fallback
+  * Put Build-Depends onto one line only
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Sun, 06 Jun 2004 16:53:05 +0200
+
+pinentry (0.7.1-1) unstable; urgency=low
+
+  * Initial public release (closes: #187546, #214578).
+  * Added missing include file path in qt/Makefile.am.
+
+ -- Peter Eisentraut <peter_e@gmx.net>  Fri, 07 May 2004 11:07:25 +0200
