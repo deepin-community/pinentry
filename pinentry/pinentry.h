@@ -21,6 +21,8 @@
 #ifndef PINENTRY_H
 #define PINENTRY_H
 
+#include "../secmem/secmem.h"
+
 #ifdef __cplusplus
 extern "C" {
 #if 0
@@ -150,6 +152,9 @@ struct pinentry
      dismiss button is required. */
   int one_button;
 
+  /* Whether this is a CONFIRM pinentry. */
+  int confirm;
+
   /* If true a second prompt for the passphrase is shown and the user
      is expected to enter the same passphrase again.  Pinentry checks
      that both match.  (Assuan: "SETREPEAT".)  */
@@ -158,6 +163,10 @@ struct pinentry
   /* The string to show if a repeated passphrase does not match.
      (Assuan: "SETREPEATERROR ERROR".)  */
   char *repeat_error_string;
+
+  /* The string to show if a repeated passphrase does match.
+     (Assuan: "SETREPEATOK STRING".)  */
+  char *repeat_ok_string;
 
   /* Set to true if the passphrase has been entered a second time and
      matches the first passphrase.  */
@@ -199,6 +208,10 @@ struct pinentry
   pinentry_color_t color_bg;
   pinentry_color_t color_so;
   int color_so_bright;
+  pinentry_color_t color_ok;
+  int color_ok_bright;
+  pinentry_color_t color_qualitybar;
+  int color_qualitybar_bright;
 
   /* Malloced and i18ned default strings or NULL.  These strings may
      include an underscore character to indicate an accelerator key.
@@ -295,15 +308,7 @@ int pinentry_loop (void);
  */
 int pinentry_loop2 (int infd, int outfd);
 
-
-/* Convert the UTF-8 encoded string TEXT to the encoding given in
-   LC_CTYPE.  Return NULL on error. */
-char *pinentry_utf8_to_local (const char *lc_ctype, const char *text);
-
-/* Convert TEXT which is encoded according to LC_CTYPE to UTF-8.  With
-   SECURE set to true, use secure memory for the returned buffer.
-   Return NULL on error. */
-char *pinentry_local_to_utf8 (char *lc_ctype, char *text, int secure);
+const char *pinentry_get_pgmname (void);
 
 char *pinentry_get_title (pinentry_t pe);
 
