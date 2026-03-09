@@ -2,7 +2,7 @@
  * Copyright (C) 2002, 2008 Klarälvdalens Datakonsult AB (KDAB)
  * Copyright 2007 Ingo Klöcker
  * Copyright 2016 Intevation GmbH
- * Copyright (C) 2021 g10 Code GmbH
+ * Copyright (C) 2021, 2022 g10 Code GmbH
  *
  * Written by Steffen Hansen <steffen@klaralvdalens-datakonsult.se>.
  * Modified by Andre Heinecke <aheinecke@intevation.de>
@@ -58,34 +58,24 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#if QT_VERSION >= 0x050700
-#include <QtPlatformHeaders/QWindowsWindowFunctions>
-#endif
 #endif
 
 void raiseWindow(QWidget *w)
 {
-#ifdef Q_OS_WIN
-#if QT_VERSION >= 0x050700
-    QWindowsWindowFunctions::setWindowActivationBehavior(
-            QWindowsWindowFunctions::AlwaysActivateWindow);
-#endif
-#endif
     w->setWindowState((w->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     w->activateWindow();
     w->raise();
 }
 
-QPixmap icon(QStyle::StandardPixmap which)
+QPixmap applicationIconPixmap(const QIcon &overlayIcon)
 {
     QPixmap pm = qApp->windowIcon().pixmap(48, 48);
 
-    if (which != QStyle::SP_CustomBase) {
-        const QIcon ic = qApp->style()->standardIcon(which);
+    if (!overlayIcon.isNull()) {
         QPainter painter(&pm);
         const int emblemSize = 22;
         painter.drawPixmap(pm.width() - emblemSize, 0,
-                           ic.pixmap(emblemSize, emblemSize));
+                           overlayIcon.pixmap(emblemSize, emblemSize));
     }
 
     return pm;
@@ -97,85 +87,172 @@ void PinEntryDialog::slotTimeout()
     reject();
 }
 
-PinEntryDialog::PinEntryDialog(QWidget *parent, const char *name,
-                               int timeout, bool modal, bool enable_quality_bar,
+PinEntryDialog::PinEntryDialog(pinentry_t pe, QWidget *parent, const char *name,
+                               bool modal,
                                const QString &repeatString,
                                const QString &visibilityTT,
                                const QString &hideTT)
-    : QDialog(parent),
-      mRepeat(NULL),
-      mRepeatError{nullptr},
-      _grabbed(false),
-      _disable_echo_allowed(true),
-      mEnforceConstraints(false),
-      mFormatPassphrase{false},
-      mVisibilityTT(visibilityTT),
-      mHideTT(hideTT),
-      mVisiActionEdit(NULL),
-      mGenerateButton{nullptr},
-      mVisiCB(NULL),
-      mFormattedPassphraseHint(NULL),
-      mFormattedPassphraseHintSpacer(NULL),
-      mCapsLockHint(NULL),
-      mConstraintsHint(NULL)
+    : QDialog{parent}
+    , _have_quality_bar{!!pe->quality_bar}
+    , _pinentry_info{pe}
+    , mVisibilityTT{visibilityTT}
+    , mHideTT{hideTT}
 {
-    _timed_out = false;
+    Q_UNUSED(name)
 
     if (modal) {
         setWindowModality(Qt::ApplicationModal);
     }
 
-    _icon = new QLabel(this);
-    _icon->setPixmap(icon());
-
     QPalette redTextPalette;
     redTextPalette.setColor(QPalette::WindowText, Qt::red);
 
-    _error = new QLabel(this);
+    auto *const mainLayout = new QVBoxLayout{this};
+
+    auto *const hbox = new QHBoxLayout;
+
+    _icon = new QLabel(this);
+    _icon->setPixmap(applicationIconPixmap());
+    hbox->addWidget(_icon, 0, Qt::AlignVCenter | Qt::AlignLeft);
+
+    auto *const grid = new QGridLayout;
+    int row = 1;
+
+    _error = new QLabel{this};
+    _error->setTextFormat(Qt::PlainText);
+    _error->setTextInteractionFlags(Qt::TextSelectableByMouse);
     _error->setPalette(redTextPalette);
     _error->hide();
+    grid->addWidget(_error, row, 1, 1, 2);
 
-    mCapsLockHint = new QLabel(this);
+    row++;
+    _desc = new QLabel{this};
+    _desc->setTextFormat(Qt::PlainText);
+    _desc->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    _desc->hide();
+    grid->addWidget(_desc,  row, 1, 1, 2);
+
+    row++;
+    mCapsLockHint = new QLabel{this};
+    mCapsLockHint->setTextFormat(Qt::PlainText);
+    mCapsLockHint->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mCapsLockHint->setPalette(redTextPalette);
     mCapsLockHint->setAlignment(Qt::AlignCenter);
     mCapsLockHint->setVisible(false);
+    grid->addWidget(mCapsLockHint, row, 1, 1, 2);
 
-    _desc = new QLabel(this);
-    _desc->hide();
+    row++;
+    {
+        _prompt = new QLabel(this);
+        _prompt->setTextFormat(Qt::PlainText);
+        _prompt->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        _prompt->hide();
+        grid->addWidget(_prompt, row, 1);
 
-    _prompt = new QLabel(this);
-    _prompt->hide();
+        const auto l = new QHBoxLayout;
+        _edit = new PinLineEdit(this);
+        _edit->setMaxLength(256);
+        _edit->setMinimumWidth(_edit->fontMetrics().averageCharWidth()*20 + 48);
+        _edit->setEchoMode(QLineEdit::Password);
+        _prompt->setBuddy(_edit);
+        l->addWidget(_edit, 1);
 
-    _edit = new PinLineEdit(this);
-    _edit->setMaxLength(256);
-    _edit->setMinimumWidth(_edit->fontMetrics().averageCharWidth()*20 + 48);
-    _edit->setEchoMode(QLineEdit::Password);
-
-    _prompt->setBuddy(_edit);
-
-    if (!repeatString.isNull()) {
-        mGenerateButton = new QPushButton{this};
-        mGenerateButton->setIcon(QIcon::fromTheme(QLatin1String("password-generate")));
-        mGenerateButton->setVisible(false);
-        connect(mGenerateButton, &QPushButton::clicked, this, &PinEntryDialog::generatePin);
+        if (!repeatString.isNull()) {
+            mGenerateButton = new QPushButton{this};
+            mGenerateButton->setIcon(QIcon(QLatin1String(":/icons/password-generate")));
+            mGenerateButton->setVisible(false);
+            l->addWidget(mGenerateButton);
+        }
+        grid->addLayout(l, row, 2);
     }
 
+    /* Set up the show password action */
+    const QIcon visibilityIcon = QIcon(QLatin1String(":/icons/visibility.svg"));
+    const QIcon hideIcon = QIcon(QLatin1String(":/icons/hint.svg"));
+#if QT_VERSION >= 0x050200
+    if (!visibilityIcon.isNull() && !hideIcon.isNull()) {
+        mVisiActionEdit = _edit->addAction(visibilityIcon, QLineEdit::TrailingPosition);
+        mVisiActionEdit->setVisible(false);
+        mVisiActionEdit->setToolTip(mVisibilityTT);
+    } else
+#endif
+    {
+        if (!mVisibilityTT.isNull()) {
+            row++;
+            mVisiCB = new QCheckBox{mVisibilityTT, this};
+            grid->addWidget(mVisiCB, row, 1, 1, 2, Qt::AlignLeft);
+        }
+    }
+
+    row++;
+    mConstraintsHint = new QLabel{this};
+    mConstraintsHint->setTextFormat(Qt::PlainText);
+    mConstraintsHint->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    mConstraintsHint->setVisible(false);
+    grid->addWidget(mConstraintsHint, row, 2);
+
+    row++;
+    mFormattedPassphraseHintSpacer = new QLabel{this};
+    mFormattedPassphraseHintSpacer->setVisible(false);
+    mFormattedPassphraseHint = new QLabel{this};
+    mFormattedPassphraseHint->setTextFormat(Qt::PlainText);
+    mFormattedPassphraseHint->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    mFormattedPassphraseHint->setVisible(false);
+    grid->addWidget(mFormattedPassphraseHintSpacer, row, 1);
+    grid->addWidget(mFormattedPassphraseHint, row, 2);
+
     if (!repeatString.isNull()) {
+        row++;
+        auto repeatLabel = new QLabel{this};
+        repeatLabel->setTextFormat(Qt::PlainText);
+        repeatLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        repeatLabel->setText(repeatString);
+        grid->addWidget(repeatLabel, row, 1);
+
         mRepeat = new PinLineEdit(this);
+        mRepeat->setMaxLength(256);
+        mRepeat->setEchoMode(QLineEdit::Password);
+        repeatLabel->setBuddy(mRepeat);
+        grid->addWidget(mRepeat, row, 2);
+
+        row++;
         mRepeatError = new QLabel{this};
+        mRepeatError->setTextFormat(Qt::PlainText);
+        mRepeatError->setTextInteractionFlags(Qt::TextSelectableByMouse);
         mRepeatError->setPalette(redTextPalette);
         mRepeatError->hide();
+        grid->addWidget(mRepeatError, row, 2);
     }
 
-    if (enable_quality_bar) {
+    if (_have_quality_bar) {
+        row++;
         _quality_bar_label = new QLabel(this);
+        _quality_bar_label->setTextFormat(Qt::PlainText);
+        _quality_bar_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
         _quality_bar_label->setAlignment(Qt::AlignVCenter);
+        grid->addWidget(_quality_bar_label, row, 1);
+
         _quality_bar = new QProgressBar(this);
         _quality_bar->setAlignment(Qt::AlignCenter);
-        _have_quality_bar = true;
-    } else {
-        _have_quality_bar = false;
+        _quality_bar_label->setBuddy(_quality_bar);
+        grid->addWidget(_quality_bar, row, 2);
     }
+
+    ++row;
+    mSavePassphraseCB = new QCheckBox{this};
+    mSavePassphraseCB->setVisible(false);
+    mSavePassphraseCB->setCheckState(!!_pinentry_info->may_cache_password
+                                     ? Qt::Checked
+                                     : Qt::Unchecked);
+#ifdef HAVE_LIBSECRET
+    if (_pinentry_info->allow_external_password_cache && _pinentry_info->keyinfo) {
+        mSavePassphraseCB->setVisible(true);
+    }
+#endif
+    grid->addWidget(mSavePassphraseCB, row, 1, 1, 2);
+
+    hbox->addLayout(grid, 1);
+    mainLayout->addLayout(hbox);
 
     QDialogButtonBox *const buttons = new QDialogButtonBox(this);
     buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -187,99 +264,44 @@ PinEntryDialog::PinEntryDialog(QWidget *parent, const char *name,
         _cancel->setIcon(style()->standardIcon(QStyle::SP_DialogCancelButton));
     }
 
-    if (timeout > 0) {
-        _timer = new QTimer(this);
-        connect(_timer, SIGNAL(timeout()), this, SLOT(slotTimeout()));
-        _timer->start(timeout * 1000);
-    } else {
-        _timer = NULL;
-    }
-
-    connect(buttons, SIGNAL(accepted()), this, SLOT(onAccept()));
-    connect(buttons, SIGNAL(rejected()), this, SLOT(reject()));
-    connect(_edit, SIGNAL(textChanged(QString)),
-            this, SLOT(updateQuality(QString)));
-    connect(_edit, SIGNAL(textChanged(QString)),
-            this, SLOT(textChanged(QString)));
-    connect(_edit, SIGNAL(backspacePressed()),
-            this, SLOT(onBackspace()));
-    if (mRepeat) {
-        connect(_edit, &QLineEdit::returnPressed,
-                this, [this] { mRepeat->setFocus(); });
-    }
-
-    auto *const mainLayout = new QVBoxLayout{this};
-
-    auto *const hbox = new QHBoxLayout;
-
-    hbox->addWidget(_icon, 0, Qt::AlignVCenter | Qt::AlignLeft);
-
-    auto *const grid = new QGridLayout;
-    int row = 1;
-    grid->addWidget(_error, row++, 1, 1, 2);
-    grid->addWidget(_desc,  row++, 1, 1, 2);
-    grid->addWidget(mCapsLockHint, row++, 1, 1, 2);
-
-    grid->addWidget(_prompt, row, 1);
-    {
-        const auto l = new QHBoxLayout;
-        l->addWidget(_edit, 1);
-        if (mGenerateButton) {
-            l->addWidget(mGenerateButton);
-        }
-        grid->addLayout(l, row++, 2);
-    }
-
-    mConstraintsHint = new QLabel;
-    mConstraintsHint->setVisible(false);
-    grid->addWidget(mConstraintsHint, row++, 2);
-
-    mFormattedPassphraseHintSpacer = new QLabel;
-    mFormattedPassphraseHintSpacer->setVisible(false);
-    mFormattedPassphraseHint = new QLabel;
-    mFormattedPassphraseHint->setVisible(false);
-    grid->addWidget(mFormattedPassphraseHintSpacer, row, 1);
-    grid->addWidget(mFormattedPassphraseHint, row++, 2);
-
-    if (mRepeat) {
-        mRepeat->setMaxLength(256);
-        mRepeat->setEchoMode(QLineEdit::Password);
-        connect(mRepeat, SIGNAL(textChanged(QString)),
-                this, SLOT(textChanged(QString)));
-        QLabel *repeatLabel = new QLabel(repeatString);
-        repeatLabel->setBuddy(mRepeat);
-        grid->addWidget(repeatLabel, row, 1);
-        grid->addWidget(mRepeat, row++, 2);
-        grid->addWidget(mRepeatError, row++, 2);
-    }
-    if (enable_quality_bar) {
-        grid->addWidget(_quality_bar_label, row, 1);
-        grid->addWidget(_quality_bar, row++, 2);
-    }
-    /* Set up the show password action */
-    const QIcon visibilityIcon = QIcon::fromTheme(QLatin1String("visibility"));
-    const QIcon hideIcon = QIcon::fromTheme(QLatin1String("hint"));
-#if QT_VERSION >= 0x050200
-    if (!visibilityIcon.isNull() && !hideIcon.isNull()) {
-        mVisiActionEdit = _edit->addAction(visibilityIcon, QLineEdit::TrailingPosition);
-        mVisiActionEdit->setVisible(false);
-        mVisiActionEdit->setToolTip(mVisibilityTT);
-        connect(mVisiActionEdit, SIGNAL(triggered()), this, SLOT(toggleVisibility()));
-    } else
-#endif
-    {
-        if (!mVisibilityTT.isNull()) {
-            mVisiCB = new QCheckBox(mVisibilityTT);
-            connect(mVisiCB, SIGNAL(toggled(bool)), this, SLOT(toggleVisibility()));
-            grid->addWidget(mVisiCB, row++, 1, 1, 2, Qt::AlignLeft);
-        }
-    }
-
-    hbox->addLayout(grid, 1);
-
-    mainLayout->addLayout(hbox);
     mainLayout->addStretch(1);
     mainLayout->addWidget(buttons);
+    mainLayout->setSizeConstraint(QLayout::SetFixedSize);
+
+    if (_pinentry_info->timeout > 0) {
+        _timer = new QTimer(this);
+        connect(_timer, &QTimer::timeout, this, &PinEntryDialog::slotTimeout);
+        _timer->start(_pinentry_info->timeout * 1000);
+    }
+
+    connect(buttons, &QDialogButtonBox::accepted,
+            this, &PinEntryDialog::onAccept);
+    connect(buttons, &QDialogButtonBox::rejected,
+            this, &QDialog::reject);
+    connect(_edit, &QLineEdit::textChanged,
+            this, &PinEntryDialog::updateQuality);
+    connect(_edit, &QLineEdit::textChanged,
+            this, &PinEntryDialog::textChanged);
+    connect(_edit, &PinLineEdit::backspacePressed,
+            this, &PinEntryDialog::onBackspace);
+    if (mGenerateButton) {
+        connect(mGenerateButton, &QPushButton::clicked,
+                this, &PinEntryDialog::generatePin);
+    }
+    if (mVisiActionEdit) {
+        connect(mVisiActionEdit, &QAction::triggered,
+                this, &PinEntryDialog::toggleVisibility);
+    }
+    if (mVisiCB) {
+        connect(mVisiCB, &QCheckBox::toggled,
+                this, &PinEntryDialog::toggleVisibility);
+    }
+    if (mRepeat) {
+        connect(mRepeat, &QLineEdit::textChanged,
+                this, &PinEntryDialog::textChanged);
+    }
+    connect(mSavePassphraseCB, &QCheckBox::toggled,
+            this, &PinEntryDialog::togglePasswordCaching);
 
     auto capsLockWatcher = new CapsLockWatcher{this};
     connect(capsLockWatcher, &CapsLockWatcher::stateChanged,
@@ -287,12 +309,16 @@ PinEntryDialog::PinEntryDialog(QWidget *parent, const char *name,
                 mCapsLockHint->setVisible(locked);
             });
 
-    connect(qApp, SIGNAL(focusChanged(QWidget *, QWidget *)),
-            this, SLOT(focusChanged(QWidget *, QWidget *)));
-    connect(qApp, SIGNAL(applicationStateChanged(Qt::ApplicationState)),
-            this, SLOT(checkCapsLock()));
-
+    connect(qApp, &QApplication::focusChanged,
+            this, &PinEntryDialog::focusChanged);
+    connect(qApp, &QApplication::applicationStateChanged,
+            this, &PinEntryDialog::checkCapsLock);
     checkCapsLock();
+
+#ifndef QT_NO_ACCESSIBILITY
+    QAccessible::installActivationObserver(this);
+    accessibilityActiveChanged(QAccessible::isActive());
+#endif
 
 #if QT_VERSION >= 0x050000
     /* This is mostly an issue on Windows where this results
@@ -314,6 +340,30 @@ PinEntryDialog::PinEntryDialog(QWidget *parent, const char *name,
 #endif
 }
 
+PinEntryDialog::~PinEntryDialog()
+{
+#ifndef QT_NO_ACCESSIBILITY
+    QAccessible::removeActivationObserver(this);
+#endif
+}
+
+void PinEntryDialog::keyPressEvent(QKeyEvent *e)
+{
+    const auto returnPressed =
+        (!e->modifiers() && (e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return))
+        || (e->modifiers() & Qt::KeypadModifier && e->key() == Qt::Key_Enter);
+    if (returnPressed && _edit->hasFocus() && mRepeat) {
+        // if the user pressed Return in the first input field, then move the
+        // focus to the repeat input field and prevent further event processing
+        // by QDialog (which would trigger the default button)
+        mRepeat->setFocus();
+        e->ignore();
+        return;
+    }
+
+    QDialog::keyPressEvent(e);
+}
+
 void PinEntryDialog::keyReleaseEvent(QKeyEvent *event)
 {
     QDialog::keyReleaseEvent(event);
@@ -330,8 +380,7 @@ void PinEntryDialog::setDescription(const QString &txt)
 {
     _desc->setVisible(!txt.isEmpty());
     _desc->setText(txt);
-    Accessibility::setDescription(_desc, txt);
-    _icon->setPixmap(icon());
+    _icon->setPixmap(applicationIconPixmap());
     setError(QString());
 }
 
@@ -343,10 +392,9 @@ QString PinEntryDialog::description() const
 void PinEntryDialog::setError(const QString &txt)
 {
     if (!txt.isNull()) {
-        _icon->setPixmap(icon(QStyle::SP_MessageBoxCritical));
+        _icon->setPixmap(applicationIconPixmap(QIcon{QStringLiteral(":/icons/data-error.svg")}));
     }
     _error->setText(txt);
-    Accessibility::setDescription(_error, txt);
     _error->setVisible(!txt.isEmpty());
 }
 
@@ -381,14 +429,12 @@ QString PinEntryDialog::prompt() const
 void PinEntryDialog::setOkText(const QString &txt)
 {
     _ok->setText(txt);
-    Accessibility::setDescription(_ok, txt);
     _ok->setVisible(!txt.isEmpty());
 }
 
 void PinEntryDialog::setCancelText(const QString &txt)
 {
     _cancel->setText(txt);
-    Accessibility::setDescription(_cancel, txt);
     _cancel->setVisible(!txt.isEmpty());
 }
 
@@ -396,7 +442,6 @@ void PinEntryDialog::setQualityBar(const QString &txt)
 {
     if (_have_quality_bar) {
         _quality_bar_label->setText(txt);
-        Accessibility::setDescription(_quality_bar_label, txt);
     }
 }
 
@@ -433,6 +478,7 @@ void PinEntryDialog::setCapsLockHint(const QString &txt)
 void PinEntryDialog::setFormattedPassphrase(const PinEntryDialog::FormattedPassphraseOptions &options)
 {
     mFormatPassphrase = options.formatPassphrase;
+    mFormattedPassphraseHint->setTextFormat(Qt::RichText);
     mFormattedPassphraseHint->setText(QLatin1String("<html>") + options.hint.toHtmlEscaped() + QLatin1String("</html>"));
     Accessibility::setName(mFormattedPassphraseHint, options.hint);
     toggleFormattedPassphrase();
@@ -442,10 +488,12 @@ void PinEntryDialog::setConstraintsOptions(const ConstraintsOptions &options)
 {
     mEnforceConstraints = options.enforce;
     mConstraintsHint->setText(options.shortHint);
-    mConstraintsHint->setToolTip(QLatin1String("<html>") +
-                                 options.longHint.toHtmlEscaped().replace(QLatin1String("\n\n"), QLatin1String("<br>")) +
-                                 QLatin1String("</html>"));
-    Accessibility::setDescription(mConstraintsHint, options.longHint);
+    if (!options.longHint.isEmpty()) {
+        mConstraintsHint->setToolTip(QLatin1String("<html>") +
+                                    options.longHint.toHtmlEscaped().replace(QLatin1String("\n\n"), QLatin1String("<br>")) +
+                                    QLatin1String("</html>"));
+        Accessibility::setDescription(mConstraintsHint, options.longHint);
+    }
     mConstraintsErrorTitle = options.errorTitle;
 
     mConstraintsHint->setVisible(mEnforceConstraints && !options.shortHint.isEmpty());
@@ -467,6 +515,11 @@ void PinEntryDialog::toggleFormattedPassphrase()
         }
         mFormattedPassphraseHint->setVisible(enableFormatting);
     }
+}
+
+void PinEntryDialog::togglePasswordCaching(bool enabled)
+{
+    _pinentry_info->may_cache_password = enabled;
 }
 
 void PinEntryDialog::onBackspace()
@@ -511,9 +564,9 @@ void PinEntryDialog::updateQuality(const QString &txt)
     }
 }
 
-void PinEntryDialog::setPinentryInfo(pinentry_t peinfo)
+void PinEntryDialog::setSavePassphraseCBText(const QString &text)
 {
-    _pinentry_info = peinfo;
+    mSavePassphraseCB->setText(text);
 }
 
 void PinEntryDialog::focusChanged(QWidget *old, QWidget *now)
@@ -530,12 +583,6 @@ void PinEntryDialog::focusChanged(QWidget *old, QWidget *now)
             _grabbed = true;
         }
     }
-    // make Ok the default button unless we have a repeat input field and
-    // the first input field has focus now; this allows us to move the focus
-    // to the repeat input field when the user presses Return in the first
-    // input field; otherwise, the dialog would "press" Ok when it receives
-    // the Return key press
-    _ok->setDefault(!mRepeat || now != _edit);
 }
 
 void PinEntryDialog::textChanged(const QString &text)
@@ -583,7 +630,7 @@ void PinEntryDialog::toggleVisibility()
     if (sender() != mVisiCB) {
         if (_edit->echoMode() == QLineEdit::Password) {
             if (mVisiActionEdit) {
-                mVisiActionEdit->setIcon(QIcon::fromTheme(QLatin1String("hint")));
+                mVisiActionEdit->setIcon(QIcon(QLatin1String(":/icons/hint.svg")));
                 mVisiActionEdit->setToolTip(mHideTT);
             }
             _edit->setEchoMode(QLineEdit::Normal);
@@ -592,7 +639,7 @@ void PinEntryDialog::toggleVisibility()
             }
         } else {
             if (mVisiActionEdit) {
-                mVisiActionEdit->setIcon(QIcon::fromTheme(QLatin1String("visibility")));
+                mVisiActionEdit->setIcon(QIcon(QLatin1String(":/icons/visibility.svg")));
                 mVisiActionEdit->setToolTip(mVisibilityTT);
             }
             _edit->setEchoMode(QLineEdit::Password);
@@ -672,6 +719,22 @@ void PinEntryDialog::onAccept()
         accept();
     }
 }
+
+#ifndef QT_NO_ACCESSIBILITY
+void PinEntryDialog::accessibilityActiveChanged(bool active)
+{
+    // Allow text labels to get focus if accessibility is active
+    const auto focusPolicy = active ? Qt::StrongFocus : Qt::ClickFocus;
+    _error->setFocusPolicy(focusPolicy);
+    _desc->setFocusPolicy(focusPolicy);
+    mCapsLockHint->setFocusPolicy(focusPolicy);
+    mConstraintsHint->setFocusPolicy(focusPolicy);
+    mFormattedPassphraseHint->setFocusPolicy(focusPolicy);
+    if (mRepeatError) {
+        mRepeatError->setFocusPolicy(focusPolicy);
+    }
+}
+#endif
 
 PinEntryDialog::PassphraseCheckResult PinEntryDialog::checkConstraints()
 {

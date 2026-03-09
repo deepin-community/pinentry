@@ -22,9 +22,7 @@
 #include <config.h>
 #endif
 
-#ifndef HAVE_W32CE_SYSTEM
-# include <errno.h>
-#endif
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -34,26 +32,11 @@
 #ifndef HAVE_W32_SYSTEM
 # include <sys/utsname.h>
 #endif
-#ifndef HAVE_W32CE_SYSTEM
-# include <locale.h>
-#endif
-#ifdef HAVE_LANGINFO_H
-#include <langinfo.h>
-#endif
+#include <locale.h>
 #include <limits.h>
-#ifdef HAVE_W32CE_SYSTEM
-# include <windows.h>
-#endif
-
-#undef WITH_UTF8_CONVERSION
-#if defined FALLBACK_CURSES || defined PINENTRY_CURSES || defined PINENTRY_GTK
-# include <iconv.h>
-# define WITH_UTF8_CONVERSION 1
-#endif
 
 #include <assuan.h>
 
-#include "memory.h"
 #include "secmem-util.h"
 #include "argparse.h"
 #include "pinentry.h"
@@ -66,9 +49,6 @@
 # include "pinentry-curses.h"
 #endif
 
-#ifdef HAVE_W32CE_SYSTEM
-#define getpid() GetCurrentProcessId ()
-#endif
 
 /* Keep the name of our program here. */
 static char this_pgmname[50];
@@ -85,12 +65,6 @@ static const char *flavor_flag;
  * the call to pinentry_have_display and set it then in our
  * parser.  */
 static char *remember_display;
-
-/* Flag to remember whether a warning has been printed.  */
-#ifdef WITH_UTF8_CONVERSION
-static int lc_ctype_unknown_warning;
-#endif
-
 
 static void
 pinentry_reset (int use_defaults)
@@ -132,6 +106,10 @@ pinentry_reset (int use_defaults)
   pinentry_color_t color_bg = pinentry.color_bg;
   pinentry_color_t color_so = pinentry.color_so;
   int color_so_bright = pinentry.color_so_bright;
+  pinentry_color_t color_ok = pinentry.color_ok;
+  int color_ok_bright = pinentry.color_ok_bright;
+  pinentry_color_t color_qualitybar = pinentry.color_qualitybar;
+  int color_qualitybar_bright = pinentry.color_qualitybar_bright;
 
   int timeout = pinentry.timeout;
 
@@ -199,6 +177,10 @@ pinentry_reset (int use_defaults)
       pinentry.color_bg = PINENTRY_COLOR_DEFAULT;
       pinentry.color_so = PINENTRY_COLOR_DEFAULT;
       pinentry.color_so_bright = 0;
+      pinentry.color_ok = PINENTRY_COLOR_DEFAULT;
+      pinentry.color_ok_bright = 0;
+      pinentry.color_qualitybar = PINENTRY_COLOR_DEFAULT;
+      pinentry.color_qualitybar_bright = 0;
 
       pinentry.owner_uid = -1;
     }
@@ -237,6 +219,10 @@ pinentry_reset (int use_defaults)
       pinentry.color_bg = color_bg;
       pinentry.color_so = color_so;
       pinentry.color_so_bright = color_so_bright;
+      pinentry.color_ok = color_ok;
+      pinentry.color_ok_bright = color_ok_bright;
+      pinentry.color_qualitybar = color_qualitybar;
+      pinentry.color_qualitybar_bright = color_qualitybar_bright;
 
       pinentry.timeout = timeout;
     }
@@ -255,150 +241,6 @@ pinentry_assuan_reset_handler (assuan_context_t ctx, char *line)
 
 
 
-#ifdef WITH_UTF8_CONVERSION
-char *
-pinentry_utf8_to_local (const char *lc_ctype, const char *text)
-{
-  iconv_t cd;
-  const char *input = text;
-  size_t input_len = strlen (text) + 1;
-  char *output;
-  size_t output_len;
-  char *output_buf;
-  size_t processed;
-  char *old_ctype;
-  char *target_encoding;
-
-  /* If no locale setting could be determined, simply copy the
-     string.  */
-  if (!lc_ctype)
-    {
-      if (! lc_ctype_unknown_warning)
-	{
-	  fprintf (stderr, "%s: no LC_CTYPE known - assuming UTF-8\n",
-		   this_pgmname);
-	  lc_ctype_unknown_warning = 1;
-	}
-      return strdup (text);
-    }
-
-  old_ctype = strdup (setlocale (LC_CTYPE, NULL));
-  if (!old_ctype)
-    return NULL;
-  setlocale (LC_CTYPE, lc_ctype);
-  target_encoding = nl_langinfo (CODESET);
-  if (!target_encoding)
-    target_encoding = "?";
-  setlocale (LC_CTYPE, old_ctype);
-  free (old_ctype);
-
-  /* This is overkill, but simplifies the iconv invocation greatly.  */
-  output_len = input_len * MB_LEN_MAX;
-  output_buf = output = malloc (output_len);
-  if (!output)
-    return NULL;
-
-  cd = iconv_open (target_encoding, "UTF-8");
-  if (cd == (iconv_t) -1)
-    {
-      fprintf (stderr, "%s: can't convert from UTF-8 to %s: %s\n",
-               this_pgmname, target_encoding, strerror (errno));
-      free (output_buf);
-      return NULL;
-    }
-  processed = iconv (cd, (ICONV_CONST char **)&input, &input_len,
-                     &output, &output_len);
-  iconv_close (cd);
-  if (processed == (size_t) -1 || input_len)
-    {
-      fprintf (stderr, "%s: error converting from UTF-8 to %s: %s\n",
-               this_pgmname, target_encoding, strerror (errno));
-      free (output_buf);
-      return NULL;
-    }
-  return output_buf;
-}
-#endif /*WITH_UTF8_CONVERSION*/
-
-
-/* Convert TEXT which is encoded according to LC_CTYPE to UTF-8.  With
-   SECURE set to true, use secure memory for the returned buffer.
-   Return NULL on error. */
-#ifdef WITH_UTF8_CONVERSION
-char *
-pinentry_local_to_utf8 (char *lc_ctype, char *text, int secure)
-{
-  char *old_ctype;
-  char *source_encoding;
-  iconv_t cd;
-  const char *input = text;
-  size_t input_len = strlen (text) + 1;
-  char *output;
-  size_t output_len;
-  char *output_buf;
-  size_t processed;
-
-  /* If no locale setting could be determined, simply copy the
-     string.  */
-  if (!lc_ctype)
-    {
-      if (! lc_ctype_unknown_warning)
-	{
-	  fprintf (stderr, "%s: no LC_CTYPE known - assuming UTF-8\n",
-		   this_pgmname);
-	  lc_ctype_unknown_warning = 1;
-	}
-      output_buf = secure? secmem_malloc (input_len) : malloc (input_len);
-      if (output_buf)
-        strcpy (output_buf, input);
-      return output_buf;
-    }
-
-  old_ctype = strdup (setlocale (LC_CTYPE, NULL));
-  if (!old_ctype)
-    return NULL;
-  setlocale (LC_CTYPE, lc_ctype);
-  source_encoding = nl_langinfo (CODESET);
-  setlocale (LC_CTYPE, old_ctype);
-  free (old_ctype);
-
-  /* This is overkill, but simplifies the iconv invocation greatly.  */
-  output_len = input_len * MB_LEN_MAX;
-  output_buf = output = secure? secmem_malloc (output_len):malloc (output_len);
-  if (!output)
-    return NULL;
-
-  cd = iconv_open ("UTF-8", source_encoding);
-  if (cd == (iconv_t) -1)
-    {
-      fprintf (stderr, "%s: can't convert from %s to UTF-8: %s\n",
-               this_pgmname, source_encoding? source_encoding : "?",
-               strerror (errno));
-      if (secure)
-        secmem_free (output_buf);
-      else
-        free (output_buf);
-      return NULL;
-    }
-  processed = iconv (cd, (ICONV_CONST char **)&input, &input_len,
-                     &output, &output_len);
-  iconv_close (cd);
-  if (processed == (size_t) -1 || input_len)
-    {
-      fprintf (stderr, "%s: error converting from %s to UTF-8: %s\n",
-               this_pgmname, source_encoding? source_encoding : "?",
-               strerror (errno));
-      if (secure)
-        secmem_free (output_buf);
-      else
-        free (output_buf);
-      return NULL;
-    }
-  return output_buf;
-}
-#endif /*WITH_UTF8_CONVERSION*/
-
-
 /* Copy TEXT or TEXTLEN to BUFFER and escape as required.  Return a
    pointer to the end of the new buffer.  Note that BUFFER must be
    large enough to keep the entire text; allocataing it 3 times of
@@ -464,7 +306,6 @@ get_cmdline (unsigned long pid)
   size_t i, n;
 
   snprintf (buffer, sizeof buffer, "/proc/%lu/cmdline", pid);
-  buffer[sizeof buffer - 1] = 0;
 
   fp = fopen (buffer, "rb");
   if (!fp)
@@ -510,7 +351,6 @@ get_pid_name_for_uid (unsigned long pid, int uid)
   char *uidstr;
 
   snprintf (buffer, sizeof buffer, "/proc/%lu/status", pid);
-  buffer[sizeof buffer - 1] = 0;
 
   fp = fopen (buffer, "rb");
   if (!fp)
@@ -525,6 +365,7 @@ get_pid_name_for_uid (unsigned long pid, int uid)
   fclose (fp);
   if (n == 0)
     return NULL;
+  buffer[n] = 0;
   /* Fixme: Is it specified that "Name" is always the first line?  For
    * robustness I would prefer to have a real parser here. -wk  */
   if (strncmp (buffer, "Name:\t", 6))
@@ -542,6 +383,13 @@ get_pid_name_for_uid (unsigned long pid, int uid)
   return strdup (buffer + 6);
 }
 #endif /*!HAVE_W32_SYSTEM*/
+
+
+const char *
+pinentry_get_pgmname (void)
+{
+  return this_pgmname;
+}
 
 
 /* Return a malloced string with the title.  The caller mus free the
@@ -563,7 +411,7 @@ pinentry_get_title (pinentry_t pe)
       char *cmdline = NULL;
 
       if (pe->owner_host &&
-          !uname (&utsbuf) && utsbuf.nodename &&
+          !uname (&utsbuf) &&
           !strcmp (utsbuf.nodename, pe->owner_host))
         {
           pidname = get_pid_name_for_uid (pe->owner_pid, pe->owner_uid);
@@ -580,7 +428,6 @@ pinentry_get_title (pinentry_t pe)
       else
         snprintf (buf, sizeof buf, "[%lu] <unknown host>",
                   pe->owner_pid);
-      buf[sizeof buf - 1] = 0;
       free (pidname);
       free (cmdline);
       title = strdup (buf);
@@ -911,9 +758,7 @@ pinentry_have_display (int argc, char **argv)
               remember_display = strdup (argv[1]);
               if (!remember_display)
                 {
-#ifndef HAVE_W32CE_SYSTEM
                   fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
                   exit (EXIT_FAILURE);
                 }
             }
@@ -927,9 +772,7 @@ pinentry_have_display (int argc, char **argv)
               remember_display = strdup (*argv+10);
               if (!remember_display)
                 {
-#ifndef HAVE_W32CE_SYSTEM
                   fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
                   exit (EXIT_FAILURE);
                 }
             }
@@ -938,14 +781,12 @@ pinentry_have_display (int argc, char **argv)
         }
     }
 
-#ifndef HAVE_W32CE_SYSTEM
   {
     const char *s;
     s = getenv ("DISPLAY");
     if (s && *s)
       found = 1;
   }
-#endif
 
   return found;
 }
@@ -978,7 +819,6 @@ my_strusage( int level )
               {
                 snprintf (str, n, "Usage: %s [options] (-h for help)",
                           this_pgmname);
-                str[n-1] = 0;
               }
           }
         p = str;
@@ -1092,9 +932,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.display = strdup (pargs.r.ret_str);
 	  if (!pinentry.display)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1102,9 +940,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.ttyname = strdup (pargs.r.ret_str);
 	  if (!pinentry.ttyname)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1112,9 +948,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.ttytype_l = strdup (pargs.r.ret_str);
 	  if (!pinentry.ttytype_l)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1122,9 +956,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.lc_ctype = strdup (pargs.r.ret_str);
 	  if (!pinentry.lc_ctype)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1132,9 +964,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.lc_messages = strdup (pargs.r.ret_str);
 	  if (!pinentry.lc_messages)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1151,6 +981,10 @@ pinentry_parse_opts (int argc, char *argv[])
             tmpstr = parse_color (tmpstr, &pinentry.color_bg, NULL);
             tmpstr = parse_color (tmpstr, &pinentry.color_so,
                                   &pinentry.color_so_bright);
+            tmpstr = parse_color (tmpstr, &pinentry.color_ok,
+                                  &pinentry.color_ok_bright);
+            tmpstr = parse_color (tmpstr, &pinentry.color_qualitybar,
+                                  &pinentry.color_qualitybar_bright);
           }
 	  break;
 
@@ -1162,9 +996,7 @@ pinentry_parse_opts (int argc, char *argv[])
 	  pinentry.ttyalert = strdup (pargs.r.ret_str);
 	  if (!pinentry.ttyalert)
 	    {
-#ifndef HAVE_W32CE_SYSTEM
 	      fprintf (stderr, "%s: %s\n", this_pgmname, strerror (errno));
-#endif
 	      exit (EXIT_FAILURE);
 	    }
 	  break;
@@ -1362,7 +1194,9 @@ option_handler (assuan_context_t ctx, const char *key, const char *value)
     }
   else if (!strcmp (key, "allow-external-password-cache") && !*value)
     {
-      pinentry.allow_external_password_cache = 1;
+      char *desktop = getenv ("XDG_SESSION_DESKTOP");
+      char *kde_use_wallet = getenv ("PINENTRY_KDE_USE_WALLET");
+      pinentry.allow_external_password_cache = (!desktop || strcmp (desktop, "KDE") || (kde_use_wallet && *kde_use_wallet));
       pinentry.tried_password_cache = 0;
     }
   else if (!strcmp (key, "allow-emacs-prompt") && !*value)
@@ -1464,7 +1298,6 @@ write_status_error (assuan_context_t ctx, pinentry_t pe)
             pe->specific_err_loc? pe->specific_err_loc : "?",
             pe->specific_err,
             pe->specific_err_info? pe->specific_err_info : "");
-  buf[sizeof buf -1] = 0;
   assuan_write_status (ctx, "ERROR", buf);
 }
 
@@ -1542,6 +1375,23 @@ cmd_setrepeat (assuan_context_t ctx, char *line)
   strcpy_escaped (p, line);
   free (pinentry.repeat_passphrase);
   pinentry.repeat_passphrase = p;
+  return 0;
+}
+
+static gpg_error_t
+cmd_setrepeatok (assuan_context_t ctx, char *line)
+{
+  char *p;
+
+  (void)ctx;
+
+  p = malloc (strlen (line) + 1);
+  if (!p)
+    return gpg_error_from_syserror ();
+
+  strcpy_escaped (p, line);
+  free (pinentry.repeat_ok_string);
+  pinentry.repeat_ok_string = p;
   return 0;
 }
 
@@ -1775,6 +1625,8 @@ cmd_getpin (assuan_context_t ctx, char *line)
   if (!pinentry.pin)
     return gpg_error (GPG_ERR_ENOMEM);
 
+  pinentry.confirm = 0;
+
   /* Try reading from the password cache.  */
   if (/* If repeat passphrase is set, then we don't want to read from
 	 the cache.  */
@@ -1883,9 +1735,11 @@ cmd_getpin (assuan_context_t ctx, char *line)
     {
       if (pinentry.repeat_okay)
         assuan_write_status (ctx, "PIN_REPEATED", "");
+      assuan_begin_confidential (ctx);
       result = assuan_send_data (ctx, pinentry.pin, strlen(pinentry.pin));
       if (!result)
 	result = assuan_send_data (ctx, NULL, 0);
+      assuan_end_confidential (ctx);
 
       if (/* GPG Agent says it's okay.  */
 	  pinentry.allow_external_password_cache && pinentry.keyinfo
@@ -1924,6 +1778,7 @@ cmd_confirm (assuan_context_t ctx, char *line)
   free (pinentry.specific_err_info);
   pinentry.specific_err_info = NULL;
   pinentry.canceled = 0;
+  pinentry.confirm = 1;
   pinentry_setbuffer_clear (&pinentry);
   result = (*pinentry_cmd_handler) (&pinentry);
   if (pinentry.error)
@@ -2021,7 +1876,6 @@ cmd_getinfo (assuan_context_t ctx, char *line)
     {
 
       snprintf (buffer, sizeof buffer, "%lu", (unsigned long)getpid ());
-      buffer[sizeof buffer -1] = 0;
       rc = assuan_send_data (ctx, buffer, strlen (buffer));
     }
   else if (!strcmp (line, "flavor"))
@@ -2035,7 +1889,6 @@ cmd_getinfo (assuan_context_t ctx, char *line)
                 s,
                 flavor_flag? ":":"",
                 flavor_flag? flavor_flag : "");
-      buffer[sizeof buffer -1] = 0;
       rc = assuan_send_data (ctx, buffer, strlen (buffer));
       /* if (!rc) */
       /*   rc = assuan_write_status (ctx, "FEATURES", "tabbing foo bar"); */
@@ -2061,7 +1914,6 @@ cmd_getinfo (assuan_context_t ctx, char *line)
 #endif
                 emacs_status
                 );
-      buffer[sizeof buffer -1] = 0;
       rc = assuan_send_data (ctx, buffer, strlen (buffer));
     }
   else
@@ -2111,6 +1963,7 @@ register_commands (assuan_context_t ctx)
       { "SETKEYINFO", cmd_setkeyinfo },
       { "SETREPEAT",  cmd_setrepeat },
       { "SETREPEATERROR", cmd_setrepeaterror },
+      { "SETREPEATOK", cmd_setrepeatok},
       { "SETERROR",   cmd_seterror },
       { "SETOK",      cmd_setok },
       { "SETNOTOK",   cmd_setnotok },
