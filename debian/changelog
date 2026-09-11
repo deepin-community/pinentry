@@ -1,3 +1,9 @@
+pinentry (1.3.1-3) unstable; urgency=medium
+
+  * Rebuild with LTO enabled (dpkg vendor feature optimize/lto).
+
+ -- tunaichao <tunaichao@uniontech.com>  Fri, 11 Sep 2026 17:33:26 +0800
+
 pinentry (1.3.1-2) unstable; urgency=low
 
   * Add b-d on libkf6guiaddons-dev for qt capslock warning. Stop marking
